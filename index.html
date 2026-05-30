@@ -7,6 +7,12 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f0f2f5; color: #333; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        /* Header and Info Button */
+        .header-inline { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .header-inline h2 { margin: 0; }
+        .info-trigger { background: #6c757d; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        
         .group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; }
         input[type="text"], input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
@@ -20,16 +26,25 @@
         #camera-input { display: none; }
         .status { background: #e2e3e5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px; margin-top: 15px; border-left: 4px solid #6c757d; }
         
-        /* New Preview Area Styles */
         .preview-box { display: none; margin-top: 15px; background: #fff; border: 2px dashed #007bff; padding: 10px; border-radius: 6px; text-align: center; }
         .preview-box img { max-width: 100%; height: auto; border-radius: 4px; margin-top: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
         .preview-instructions { font-size: 13px; color: #666; font-style: italic; margin-top: 5px; }
+
+        /* Ultra-trim Modal Popup Styles */
+        .modal-mask { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .modal-box { background: white; padding: 20px; border-radius: 8px; max-width: 400px; width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .modal-box h3 { margin-top: 0; margin-bottom: 12px; color: #007bff; font-size: 18px; }
+        .modal-box ul { padding-left: 18px; margin: 0 0 15px 0; font-size: 14px; line-height: 1.4; }
+        .modal-box li { margin-bottom: 6px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Unit Photo Logger</h2>
+    <div class="header-inline">
+        <h2>Unit Photo Logger</h2>
+        <button type="button" class="info-trigger" onclick="toggleModal(true)">ⓘ</button>
+    </div>
     
     <div class="group">
         <label for="unit">Unit Number</label>
@@ -66,7 +81,26 @@
     <div class="status" id="status-box">Ready. Next filename template will update when you select options.</div>
 </div>
 
+<div id="help-modal" class="modal-mask" onclick="toggleModal(false)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <h3>Field Operations Guide</h3>
+        <ul>
+            <li><strong>Setup:</strong> Open link while online. Select browser options menu ➔ <strong>"Add to Home Screen"</strong>. Run offline via the new app icon.</li>
+            <li><strong>Step 1:</strong> Enter Unit # and Level number.</li>
+            <li><strong>Step 2:</strong> Tap target orientation context (N, E, S, W, Floor).</li>
+            <li><strong>Step 3:</strong> Tap 📷, capture photo, and accept.</li>
+            <li><strong>Step 4:</strong> Press and hold (long-press) the generated preview screen image to choose <strong>Save/Share</strong> routing location.</li>
+        </ul>
+        <button type="button" class="action-btn" style="padding:10px; margin:0; font-size:15px;" onclick="toggleModal(false)">Close Guide</button>
+    </div>
+</div>
+
 <script>
+    // --- POPUP WINDOW CONTROLLER ---
+    function toggleModal(show) {
+        document.getElementById('help-modal').style.display = show ? 'flex' : 'none';
+    }
+
     // --- OFFLINE SERVICE WORKER REGISTRATION ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
@@ -120,7 +154,6 @@
         var counterString = padZero(photoCounter);
         var filename = unit + '_lvl' + levelNum + '_' + contextString + '_' + counterString + '.jpg';
 
-        // Read the image file and render it right into the image element
         var reader = new FileReader();
         reader.onload = function(e) {
             var previewArea = document.getElementById('image-preview-area');
@@ -129,7 +162,7 @@
             
             previewImg.src = e.target.result;
             nameHeader.innerText = filename;
-            previewArea.style.display = 'block'; // Make the preview section visible
+            previewArea.style.display = 'block';
             
             document.getElementById('status-box').innerText = 'Rendered: ' + filename;
         };
@@ -151,10 +184,7 @@
             var btnElement = document.getElementById(dirIds[i]);
             if (btnElement) { btnElement.className = ''; }
         }
-        
-        // Hide image container on context clear
-        document.getElementById('image-preview-area').style.style.display = 'none';
-        
+        document.getElementById('image-preview-area').style.display = 'none';
         updateStatus();
         alert('Advanced to Level ' + levelInput.value);
     }
