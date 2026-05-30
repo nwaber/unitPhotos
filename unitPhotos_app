@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Unit Photo Logger</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f2f5; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; }
+        .btn-group button { flex: 1; padding: 15px 5px; border: 1px solid #ccc; background: #e9ecef; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 16px; text-align: center; display: block; -webkit-appearance: none; }
+        .btn-group button.active { background: #007bff !important; color: #ffffff !important; border-color: #0056b3 !important; }
+        .action-btn { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 18px; font-weight: bold; cursor: pointer; margin-bottom: 10px; display: block; text-align: center; text-decoration: none; box-sizing: border-box; -webkit-appearance: none; }
+        .action-btn.secondary { background: #dc3545; }
+        .action-btn.neutral { background: #17a2b8; }
+        #camera-input { display: none; }
+        .status { background: #e2e3e5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px; margin-top: 15px; border-left: 4px solid #6c757d; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Unit Photo Logger</h2>
+    
+    <div class="group">
+        <label for="unit">Unit Number</label>
+        <input type="text" id="unit" placeholder="e.g., EU26-031">
+    </div>
+
+    <div class="group">
+        <label for="level">Level</label>
+        <input type="number" id="level" value="1" min="1">
+    </div>
+
+    <label>Orientation / Context</label>
+    <div class="btn-group" id="direction-group">
+        <button type="button" id="btn-N" onclick="selectDir('N')">N</button>
+        <button type="button" id="btn-E" onclick="selectDir('E')">E</button>
+        <button type="button" id="btn-S" onclick="selectDir('S')">S</button>
+        <button type="button" id="btn-W" onclick="selectDir('W')">W</button>
+        <button type="button" id="btn-floor" onclick="selectDir('floor')">Floor</button>
+    </div>
+
+    <input type="file" accept="image/*" capture="environment" id="camera-input" onchange="handlePhoto(this)">
+    
+    <button type="button" class="action-btn" onclick="triggerCamera()">📷 Take Photo</button>
+    <button type="button" class="action-btn neutral" onclick="nextLevel()">✔️ Level Photos Finished</button>
+    <button type="button" class="action-btn secondary" onclick="resetUnit()">🏁 Finished Unit</button>
+
+    <div class="status" id="status-box">Ready. Next filename template will update when you select options.</div>
+</div>
+
+<script>
+    var currentDirection = '';
+    var photoCounter = 1;
+    var dirIds = ['btn-N', 'btn-E', 'btn-S', 'btn-W', 'btn-floor'];
+
+    function padZero(num) {
+        var s = String(num);
+        if (s.length < 2) { return "0" + s; }
+        return s;
+    }
+
+    function selectDir(dirName) {
+        currentDirection = dirName;
+        for (var i = 0; i < dirIds.length; i++) {
+            var btnElement = document.getElementById(dirIds[i]);
+            if (btnElement) { btnElement.className = ''; }
+        }
+        var activeBtn = document.getElementById('btn-' + dirName);
+        if (activeBtn) { activeBtn.className = 'active'; }
+        updateStatus();
+    }
+
+    function triggerCamera() {
+        var unitRaw = document.getElementById('unit').value;
+        var unit = unitRaw.replace(/^\s+|\s+$/g, ''); 
+        if (unit == "") { alert("Please enter a Unit Number first."); return; }
+        if (currentDirection == "") { alert("Please select an Orientation (N, S, E, W, or Floor)."); return; }
+        document.getElementById('camera-input').click();
+    }
+
+    function handlePhoto(input) {
+        if (!input.files || !input.files[0]) return;
+
+        var file = input.files[0];
+        var unitRaw = document.getElementById('unit').value;
+        var unit = unitRaw.replace(/^\s+|\s+$/g, '').replace(/\s+/g, '_');
+        var levelNum = padZero(document.getElementById('level').value);
+        
+        var contextString = (currentDirection == 'floor') ? 'floor' : 'wall_' + currentDirection;
+        var counterString = padZero(photoCounter);
+        var filename = unit + '_lvl' + levelNum + '_' + contextString + '_' + counterString + '.jpg';
+
+        var blobUrl = URL.createObjectURL(file);
+        var link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+
+        document.getElementById('status-box').innerText = 'Saved: ' + filename;
+        photoCounter++;
+        input.value = '';
+        updateStatus();
+    }
+
+    function nextLevel() {
+        var levelInput = document.getElementById('level');
+        var currentLvl = parseInt(levelInput.value, 10);
+        levelInput.value = currentLvl + 1;
+        
+        photoCounter = 1;
+        currentDirection = '';
+        for (var i = 0; i < dirIds.length; i++) {
+            var btnElement = document.getElementById(dirIds[i]);
+            if (btnElement) { btnElement.className = ''; }
+        }
+        updateStatus();
+        alert('Advanced to Level ' + levelInput.value);
+    }
+
+    function resetUnit() {
+        if(confirm("Are you sure you want to finish this unit? This clears fields.")) {
+            document.getElementById('unit').value = '';
+            document.getElementById('level').value = '1';
+            photoCounter = 1;
+            currentDirection = '';
+            for (var i = 0; i < dirIds.length; i++) {
+                var btnElement = document.getElementById(dirIds[i]);
+                if (btnElement) { btnElement.className = ''; }
+            }
+            document.getElementById('status-box').innerText = "Unit cleared. Ready for next asset.";
+        }
+    }
+
+    function updateStatus() {
+        var unitRaw = document.getElementById('unit').value;
+        var unit = unitRaw.replace(/^\s+|\s+$/g, '');
+        if (unit == "") { unit = '[UNIT]'; }
+        
+        var levelNum = padZero(document.getElementById('level').value);
+        var contextString = '[DIR]';
+        if (currentDirection != '') {
+            contextString = (currentDirection == 'floor') ? 'floor' : 'wall_' + currentDirection;
+        }
+        
+        var counterString = padZero(photoCounter);
+        document.getElementById('status-box').innerText = 'Next: ' + unit + '_lvl' + levelNum + '_' + contextString + '_' + counterString + '.jpg';
+    }
+
+    document.getElementById('unit').oninput = updateStatus;
+    document.getElementById('level').oninput = updateStatus;
+</script>
+
+</body>
+</html>
