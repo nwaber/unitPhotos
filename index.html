@@ -15,6 +15,10 @@
         .group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; }
         input[type="text"], input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+
+        .two-col { display: flex; gap: 10px; margin-bottom: 15px; }
+        .two-col .group { flex: 1; margin-bottom: 0; }
+
         .btn-group { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; }
         .btn-group button { flex: 1; padding: 15px 5px; border: 1px solid #ccc; background: #e9ecef; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 16px; text-align: center; display: block; -webkit-appearance: none; }
         .btn-group button.active { background: #007bff !important; color: #ffffff !important; border-color: #0056b3 !important; }
@@ -22,12 +26,12 @@
         .action-btn { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 18px; font-weight: bold; cursor: pointer; margin-bottom: 10px; display: block; text-align: center; text-decoration: none; box-sizing: border-box; -webkit-appearance: none; }
         .action-btn.secondary { background: #dc3545; }
         .action-btn.neutral { background: #17a2b8; }
+        .action-btn.save { background: #6610f2; }
         #camera-input { display: none; }
-        .status { background: #e2e3e5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px; margin-top: 15px; border-left: 4px solid #6c757d; }
+        .status { background: #e2e3e5; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px; margin-top: 15px; border-left: 4px solid #6c757d; word-break: break-all; }
         
         .preview-box { display: none; margin-top: 15px; background: #fff; border: 2px dashed #007bff; padding: 10px; border-radius: 6px; text-align: center; }
         .preview-box img { max-width: 100%; height: auto; border-radius: 4px; margin-top: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        .preview-instructions { font-size: 13px; color: #666; font-style: italic; margin-top: 5px; }
 
         .modal-mask { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
         .modal-box { background: white; padding: 20px; border-radius: 8px; max-width: 420px; width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
@@ -49,9 +53,15 @@
         <input type="text" id="unit" placeholder="e.g., EU26-031">
     </div>
 
-    <div class="group">
-        <label for="level">Level</label>
-        <input type="number" id="level" value="1" min="1">
+    <div class="two-col">
+        <div class="group">
+            <label for="layer">Layer</label>
+            <input type="text" id="layer" placeholder="e.g., 2a">
+        </div>
+        <div class="group">
+            <label for="level">Level</label>
+            <input type="number" id="level" value="1" min="1">
+        </div>
     </div>
 
     <label>Orientation / Context</label>
@@ -68,9 +78,9 @@
     <button type="button" class="action-btn" onclick="triggerCamera()">📷 Take Photo</button>
     
     <div id="image-preview-area" class="preview-box">
-        <div style="font-weight: bold; color: #007bff;" id="assigned-name">Filename target goes here</div>
-        <div class="preview-instructions">👇 Long-press (Hold down) image to Save/Share</div>
+        <div style="font-weight: bold; color: #007bff; word-break: break-all;" id="assigned-name"></div>
         <img id="output-view" src="" alt="Captured Asset Preview">
+        <button type="button" id="save-btn" class="action-btn save" style="margin-top: 12px; display: none;" onclick="savePhoto()">💾 Save Photo</button>
     </div>
 
     <button type="button" class="action-btn neutral" onclick="nextLevel()">✔️ Level Photos Finished</button>
@@ -84,10 +94,11 @@
         <h3>Field Operations Guide</h3>
         <ul>
             <li><strong>Setup:</strong> Open link online ➔ menu options ➔ <strong>"Add to Home Screen"</strong>. Run offline from the home screen icon.</li>
-            <li><strong>Logging Assets:</strong> Enter Unit # and Level. Select an orientation (N, E, S, W, Floor) and tap <strong>📷 Take Photo</strong>.</li>
-            <li><strong>Saving Names:</strong> Press and hold (long-press) the generated image preview to open the menu and choose your target storage location.</li>
-            <li><strong>Advance Level:</strong> Tap <strong>"Level Photos Finished"</strong> to increment the level sequence and reset the internal counter.</li>
-            <li><strong>Close Unit:</strong> Tap <strong>"Finished Unit"</strong> to clear out all data caches for the next feature layout deployment.</li>
+            <li><strong>Filename format:</strong> <code>[UNIT]_[LYR]_lvl[NN]_[context]_[NN].jpg</code></li>
+            <li><strong>Logging Photos:</strong> Enter Unit #, Layer, and Level. Select an orientation (N, E, S, W, Floor) and tap <strong>📷 Take Photo</strong>.</li>
+            <li><strong>Saving:</strong> Tap <strong>💾 Save Photo</strong> to save with the correct filename via the share sheet.</li>
+            <li><strong>Advance Level:</strong> Tap <strong>"Level Photos Finished"</strong> to increment the level and reset the photo counter.</li>
+            <li><strong>Close Unit:</strong> Tap <strong>"Finished Unit"</strong> to clear all fields for the next unit.</li>
         </ul>
         <button type="button" class="action-btn" style="padding:10px; margin:0; font-size:15px;" onclick="toggleModal(false)">Close Guide</button>
     </div>
@@ -111,18 +122,32 @@
     var currentDirection = '';
     var photoCounter = 1;
     var dirIds = ['btn-N', 'btn-E', 'btn-S', 'btn-W', 'btn-floor'];
+    var currentFileBlob = null;
+    var currentFilename = '';
 
     function padZero(num) {
         var s = String(num);
-        if (s.length < 2) { return "0" + s; }
-        return s;
+        return s.length < 2 ? '0' + s : s;
+    }
+
+    function buildFilename() {
+        var unit = document.getElementById('unit').value.replace(/^\s+|\s+$/g, '').replace(/\s+/g, '_');
+        var layer = document.getElementById('layer').value.replace(/^\s+|\s+$/g, '').replace(/\s+/g, '_');
+        var levelNum = padZero(document.getElementById('level').value);
+        var contextString = currentDirection === 'floor' ? 'floor' : (currentDirection !== '' ? 'wall_' + currentDirection : '[DIR]');
+        var counterString = padZero(photoCounter);
+
+        var unitPart   = unit   !== '' ? unit   : '[UNIT]';
+        var layerPart  = layer  !== '' ? layer  : '[LYR]';
+
+        return unitPart + '_' + layerPart + '_lvl' + levelNum + '_' + contextString + '_' + counterString + '.jpg';
     }
 
     function selectDir(dirName) {
         currentDirection = dirName;
         for (var i = 0; i < dirIds.length; i++) {
-            var btnElement = document.getElementById(dirIds[i]);
-            if (btnElement) { btnElement.className = ''; }
+            var btn = document.getElementById(dirIds[i]);
+            if (btn) { btn.className = ''; }
         }
         var activeBtn = document.getElementById('btn-' + dirName);
         if (activeBtn) { activeBtn.className = 'active'; }
@@ -130,10 +155,9 @@
     }
 
     function triggerCamera() {
-        var unitRaw = document.getElementById('unit').value;
-        var unit = unitRaw.replace(/^\s+|\s+$/g, ''); 
-        if (unit == "") { alert("Please enter a Unit Number first."); return; }
-        if (currentDirection == "") { alert("Please select an Orientation (N, S, E, W, or Floor)."); return; }
+        var unit = document.getElementById('unit').value.replace(/^\s+|\s+$/g, '');
+        if (unit === '') { alert('Please enter a Unit Number first.'); return; }
+        if (currentDirection === '') { alert('Please select an Orientation (N, S, E, W, or Floor).'); return; }
         document.getElementById('camera-input').click();
     }
 
@@ -141,25 +165,29 @@
         if (!input.files || !input.files[0]) return;
 
         var file = input.files[0];
-        var unitRaw = document.getElementById('unit').value;
-        var unit = unitRaw.replace(/^\s+|\s+$/g, '').replace(/\s+/g, '_');
-        var levelNum = padZero(document.getElementById('level').value);
-        
-        var contextString = (currentDirection == 'floor') ? 'floor' : 'wall_' + currentDirection;
-        var counterString = padZero(photoCounter);
-        var filename = unit + '_lvl' + levelNum + '_' + contextString + '_' + counterString + '.jpg';
+        currentFilename = buildFilename();
 
         var reader = new FileReader();
         reader.onload = function(e) {
             var previewArea = document.getElementById('image-preview-area');
-            var previewImg = document.getElementById('output-view');
-            var nameHeader = document.getElementById('assigned-name');
-            
+            var previewImg  = document.getElementById('output-view');
+            var nameHeader  = document.getElementById('assigned-name');
+            var saveBtn     = document.getElementById('save-btn');
+
             previewImg.src = e.target.result;
-            nameHeader.innerText = filename;
+            nameHeader.innerText = currentFilename;
             previewArea.style.display = 'block';
-            
-            document.getElementById('status-box').innerText = 'Rendered: ' + filename;
+            saveBtn.style.display = 'block';
+            saveBtn.innerText = '💾 Save: ' + currentFilename;
+
+            // Build a named File blob for Web Share API
+            fetch(e.target.result)
+                .then(function(res) { return res.blob(); })
+                .then(function(blob) {
+                    currentFileBlob = new File([blob], currentFilename, { type: 'image/jpeg' });
+                });
+
+            document.getElementById('status-box').innerText = 'Captured: ' + currentFilename;
         };
         reader.readAsDataURL(file);
 
@@ -168,53 +196,79 @@
         updateStatus();
     }
 
+    function savePhoto() {
+        if (!currentFileBlob) { alert('No photo ready to save.'); return; }
+
+        // Web Share API path (iOS Safari PWA + modern Android)
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [currentFileBlob] })) {
+            navigator.share({
+                files: [currentFileBlob],
+                title: currentFilename
+            }).catch(function(err) {
+                if (err.name !== 'AbortError') {
+                    console.log('Share failed, falling back.', err);
+                    fallbackDownload();
+                }
+            });
+        } else {
+            fallbackDownload();
+        }
+    }
+
+    function fallbackDownload() {
+        // <a download> fallback for desktop browsers
+        var url = URL.createObjectURL(currentFileBlob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = currentFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    }
+
     function nextLevel() {
         var levelInput = document.getElementById('level');
-        var currentLvl = parseInt(levelInput.value, 10);
-        levelInput.value = currentLvl + 1;
-        
+        levelInput.value = parseInt(levelInput.value, 10) + 1;
         photoCounter = 1;
         currentDirection = '';
+        currentFileBlob = null;
+        currentFilename = '';
         for (var i = 0; i < dirIds.length; i++) {
-            var btnElement = document.getElementById(dirIds[i]);
-            if (btnElement) { btnElement.className = ''; }
+            var btn = document.getElementById(dirIds[i]);
+            if (btn) { btn.className = ''; }
         }
         document.getElementById('image-preview-area').style.display = 'none';
+        document.getElementById('save-btn').style.display = 'none';
         updateStatus();
         alert('Advanced to Level ' + levelInput.value);
     }
 
     function resetUnit() {
-        if(confirm("Are you sure you want to finish this unit? This clears fields.")) {
-            document.getElementById('unit').value = '';
+        if (confirm('Are you sure you want to finish this unit? This clears all fields.')) {
+            document.getElementById('unit').value  = '';
+            document.getElementById('layer').value = '';
             document.getElementById('level').value = '1';
             photoCounter = 1;
             currentDirection = '';
+            currentFileBlob = null;
+            currentFilename = '';
             for (var i = 0; i < dirIds.length; i++) {
-                var btnElement = document.getElementById(dirIds[i]);
-                if (btnElement) { btnElement.className = ''; }
+                var btn = document.getElementById(dirIds[i]);
+                if (btn) { btn.className = ''; }
             }
             document.getElementById('image-preview-area').style.display = 'none';
-            document.getElementById('status-box').innerText = "Unit cleared. Ready for next asset.";
+            document.getElementById('save-btn').style.display = 'none';
+            document.getElementById('status-box').innerText = 'Unit cleared. Ready for next unit.';
         }
     }
 
     function updateStatus() {
-        var unitRaw = document.getElementById('unit').value;
-        var unit = unitRaw.replace(/^\s+|\s+$/g, '');
-        if (unit == "") { unit = '[UNIT]'; }
-        
-        var levelNum = padZero(document.getElementById('level').value);
-        var contextString = '[DIR]';
-        if (currentDirection != '') {
-            contextString = (currentDirection == 'floor') ? 'floor' : 'wall_' + currentDirection;
-        }
-        
-        var counterString = padZero(photoCounter);
-        document.getElementById('status-box').innerText = 'Next: ' + unit + '_lvl' + levelNum + '_' + contextString + '_' + counterString + '.jpg';
+        document.getElementById('status-box').innerText = 'Next: ' + buildFilename();
     }
 
-    document.getElementById('unit').oninput = updateStatus;
+    document.getElementById('unit').oninput  = updateStatus;
+    document.getElementById('layer').oninput = updateStatus;
     document.getElementById('level').oninput = updateStatus;
 </script>
 
